@@ -6,6 +6,13 @@ import UserManagement from '../components/UserManagement';
 import OpportunityManager from '../components/OpportunityManager';
 import './Dashboard.css';
 
+const getFileUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('/')) return path;
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
+    return `${baseUrl}/${path.replace(/\\/g, '/')}`;
+};
+
 const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
     const [hackathons, setHackathons] = useState([]); // Accepted hackathons
@@ -844,7 +851,7 @@ const AdminDashboard = () => {
                             <div key={hackathon._id} className="hackathon-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                                 {hackathon.posterPath && (
                                     <img
-                                        src={`http://localhost:5000/${hackathon.posterPath}`}
+                                        src={getFileUrl(hackathon.posterPath)}
                                         alt={hackathon.title}
                                         style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px', marginBottom: '15px' }}
                                     />
