@@ -32,18 +32,13 @@ exports.bulkUpdateHackathonStatus = async (req, res) => {
             });
         }
 
-        // Validate access rights for EACH hackathon
+        // Validate access: proctor can only update hackathons for their directly assigned students
         const unauthorizedHackathons = hackathons.filter(h => {
             const student = h.studentId;
             if (!student) return true; // Orphaned record, deny
-
-            // Access granted if:
-            // 1. Student is directly assigned to this proctor
-            // 2. Student is in the same department (for 'All Students' view actions)
-            const isAssigned = student.proctorId && student.proctorId.toString() === req.user.id;
-            const isSameDept = student.department === currentProctor.department;
-
-            return !(isAssigned || isSameDept);
+            // Only allow if student is directly assigned to THIS proctor
+            const isAssigned = student.proctorId && student.proctorId.toString() === req.user.id.toString();
+            return !isAssigned;
         });
 
         if (unauthorizedHackathons.length > 0) {
@@ -150,40 +145,9 @@ exports.getAssignedHackathonsPaginated = async (req, res) => {
         // Build base filter
         let filter = {};
 
-        // Dynamic View Logic (My Students vs All Dept Students)
-        // Dynamic View Logic (My Students vs All Dept Students)
-        const { view } = req.query;
-
-        if (view === 'all') {
-            const me = await Proctor.findById(req.user.id);
-            if (!me) {
-                return res.status(404).json({ message: 'Proctor profile not found' });
-            }
-
-            if (me.department) {
-                // Find students in the same department
-                const deptStudents = await Student.find({ department: me.department }).select('_id');
-                const studentIds = deptStudents.map(s => s._id);
-
-                if (studentIds.length === 0) {
-                    // No students in department, return empty immediately or set impossible filter
-                    return res.json({
-                        hackathons: [],
-                        pagination: { total: 0, page, limit, totalPages: 0, hasNext: false, hasPrev: false }
-                    });
-                }
-
-                filter.studentId = { $in: studentIds };
-            } else {
-                // Fallback if no department assigned
-                const assignedStudents = await Student.find({ proctorId: req.user.id }).select('_id');
-                filter.studentId = { $in: assignedStudents.map(s => s._id) };
-            }
-        } else {
-            // Default: My Assigned Students
-            const assignedStudents = await Student.find({ proctorId: req.user.id }).select('_id');
-            filter.studentId = { $in: assignedStudents.map(s => s._id) };
-        }
+        // Always filter by directly assigned students only (no cross-proctor visibility)
+        const assignedStudents = await Student.find({ proctorId: req.user.id }).select('_id');
+        filter.studentId = { $in: assignedStudents.map(s => s._id) };
 
         if (req.query.status) {
             filter.status = req.query.status;

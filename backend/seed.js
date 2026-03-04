@@ -1,8 +1,9 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const Admin = require('./models/Admin');
 const Proctor = require('./models/Proctor');
 
-const MONGO_URI = 'mongodb://127.0.0.1:27017/hackathon_portal';
+const MONGO_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGO_URI)
     .then(async () => {

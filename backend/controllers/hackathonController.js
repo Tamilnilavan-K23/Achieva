@@ -45,21 +45,41 @@ exports.submitHackathon = async (req, res) => {
             certificateType: certificateType || 'Participation Certificate'
         });
 
-        // Find student to get department and assign proctor
         const student = await Student.findById(req.user.id);
-        // Find a proctor in the same department
-        const proctor = await Proctor.findOne({ department: student.department });
+        // Use student's already-assigned proctor. If not yet assigned, do load-balanced assignment.
+        let proctor = null;
+        if (student.proctorId) {
+            proctor = await Proctor.findById(student.proctorId);
+        }
+        if (!proctor) {
+            // Load-balanced assignment among proctors of same department
+            const proctors = await Proctor.find({ department: student.department });
+            if (proctors.length > 0) {
+                proctor = proctors.reduce((least, p) =>
+                    (p.assignedStudents.length < least.assignedStudents.length) ? p : least
+                    , proctors[0]);
+            } else {
+                proctor = await Proctor.findOne({ email: 'proctor1@portal.com' });
+            }
+        }
 
         if (proctor) {
             hackathon.proctorId = proctor._id;
             await hackathon.save();
+
+            // Make sure the student is also assigned to this proctor
+            if (!student.proctorId || student.proctorId.toString() !== proctor._id.toString()) {
+                student.proctorId = proctor._id;
+                await student.save();
+            }
+
             // Add to proctor's assigned students if not already there
             if (!proctor.assignedStudents.includes(student._id)) {
                 proctor.assignedStudents.push(student._id);
                 await proctor.save();
             }
         } else {
-            console.warn(`No proctor found for department: ${student.department}`);
+            console.warn(`No proctor found at all for student: ${student.email}`);
         }
 
         // Send Email Notification to Student
@@ -92,25 +112,12 @@ exports.getMyHackathons = async (req, res) => {
 };
 
 // Get Proctor Assigned Hackathons
-// Get Proctor Assigned Hackathons
 exports.getAssignedHackathons = async (req, res) => {
     try {
-        const { view } = req.query;
-        let filter = {};
-
-        if (view === 'all') {
-            // Find current proctor to get department
-            const me = await Proctor.findById(req.user.id);
-            // Find all students in this department
-            const deptStudents = await Student.find({ department: me.department }).select('_id');
-            const studentIds = deptStudents.map(s => s._id);
-            filter = { studentId: { $in: studentIds } };
-        } else {
-            // Default: Only my assigned students
-            const assignedStudents = await Student.find({ proctorId: req.user.id }).select('_id');
-            const studentIds = assignedStudents.map(s => s._id);
-            filter = { studentId: { $in: studentIds } };
-        }
+        // Always show only this proctor's directly assigned students
+        const assignedStudents = await Student.find({ proctorId: req.user.id }).select('_id');
+        const studentIds = assignedStudents.map(s => s._id);
+        const filter = { studentId: { $in: studentIds } };
 
         const hackathons = await Hackathon.find(filter)
             .populate({
@@ -138,14 +145,18 @@ exports.updateHackathonStatus = async (req, res) => {
             return res.status(404).json({ message: 'Hackathon not found' });
         }
 
-        // Strict Check: Verify against Student's CURRENT Proctor
+        // Strict check: only the student's directly assigned proctor can approve
         const student = await Student.findById(hackathon.studentId);
         if (!student) {
             return res.status(404).json({ message: 'Student record not found' });
         }
 
-        if (!student.proctorId || student.proctorId.toString() !== req.user.id.toString()) {
+        const proctorId = req.user.id.toString();
+        const studentProctorId = student.proctorId ? student.proctorId.toString() : null;
+
+        if (!studentProctorId || studentProctorId !== proctorId) {
             console.log('Authorization failed - proctor mismatch');
+            console.log('req.user.id:', proctorId, '| student.proctorId:', studentProctorId);
             return res.status(403).json({ message: 'Not authorized: You are not the assigned proctor for this student.' });
         }
 

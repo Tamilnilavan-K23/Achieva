@@ -37,8 +37,19 @@ exports.registerStudent = async (req, res) => {
 
         const { name, email, password, registerNo, department, year } = req.body;
 
-        // Find a proctor in the same department
-        const proctor = await Proctor.findOne({ department });
+        // Assign to the proctor with fewest students in same department, fallback to any proctor
+        const proctors = await Proctor.find({ department });
+        let proctor = null;
+        if (proctors.length > 0) {
+            // Pick the proctor with the least assigned students (load balancing)
+            proctor = proctors.reduce((least, p) =>
+                (p.assignedStudents.length < least.assignedStudents.length) ? p : least
+                , proctors[0]);
+        } else {
+            // No proctor for this department yet, fallback to proctor1
+            proctor = await Proctor.findOne({ email: 'proctor1@portal.com' });
+        }
+
         let proctorId = null;
         if (proctor) {
             proctorId = proctor._id;
@@ -47,8 +58,10 @@ exports.registerStudent = async (req, res) => {
         const student = await Student.create({ name, email, password, registerNo, department, year, proctorId });
 
         if (proctor) {
-            proctor.assignedStudents.push(student._id);
-            await proctor.save();
+            if (!proctor.assignedStudents.includes(student._id)) {
+                proctor.assignedStudents.push(student._id);
+                await proctor.save();
+            }
         }
 
         // Send Welcome Email
@@ -339,7 +352,7 @@ exports.googleLogin = async (req, res) => {
                 });
 
                 // Assign Proctor for Google Login students (Defaulting to CSBS)
-                const proctor = await Proctor.findOne({ department: 'CSBS' });
+                const proctor = await Proctor.findOne({ email: 'proctor1@portal.com' });
                 if (proctor) {
                     user.proctorId = proctor._id;
                     await user.save();

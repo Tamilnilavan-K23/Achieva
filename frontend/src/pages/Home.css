@@ -7,7 +7,7 @@
 .hero-section {
     text-align: center;
     padding: 80px 20px;
-    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/tce_building_final.png');
+    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('../assets/Thiagarajar-College-of-Engineering-TCE-Madurai-Campus-View.jpeg');
     background-size: cover;
     background-position: center;
     color: white;
@@ -407,4 +407,38 @@
     .hero-section h1 {
         font-size: 1.6rem !important;
     }
+}
+
+/* Marquee Slider */
+.marquee-container {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    padding: 20px 0;
+}
+
+.marquee-content {
+    display: flex;
+    width: max-content;
+    animation: marquee-scroll 35s linear infinite;
+    gap: 30px;
+}
+
+.marquee-container:hover .marquee-content {
+    animation-play-state: paused;
+}
+
+@keyframes marquee-scroll {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(calc(-50% - 15px));
+    }
+}
+
+.upcoming-hackathon-card {
+    width: 380px;
+    flex-shrink: 0;
 }
