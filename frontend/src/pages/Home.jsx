@@ -7,6 +7,13 @@ import tceLogo from '../assets/tce_logo_contact.png';
 
 import { motion } from 'framer-motion';
 
+const getImageUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('/')) return path;
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
+    return `${baseUrl}/${path.replace(/\\/g, '/')}`;
+};
+
 const Home = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -200,11 +207,11 @@ const Home = () => {
                                     {/* Poster Image */}
                                     <div style={{ height: '200px', overflow: 'hidden', background: '#f5f5f5', cursor: 'pointer' }}
                                         onClick={() => setSelectedPoster({
-                                            url: hackathon.posterPath ? (hackathon.posterPath.startsWith('/') ? hackathon.posterPath : `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}`) : null,
+                                            url: getImageUrl(hackathon.posterPath),
                                             title: hackathon.title
                                         })}>
                                         <img
-                                            src={hackathon.posterPath ? (hackathon.posterPath.startsWith('/') ? hackathon.posterPath : `http://localhost:5000/${hackathon.posterPath.replace(/\\/g, '/')}`) : ''}
+                                            src={getImageUrl(hackathon.posterPath)}
                                             alt={hackathon.title}
                                             style={{
                                                 width: '100%',
