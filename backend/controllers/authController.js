@@ -12,6 +12,10 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const generateToken = (id, role, registerNo = null) => {
     const payload = { id, role };
     if (registerNo) payload.registerNo = registerNo;
+    if (!process.env.JWT_SECRET) {
+        console.error('CRITICAL ERROR: JWT_SECRET is not defined in environment variables');
+        throw new Error('Server configuration error: JWT_SECRET missing');
+    }
     return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
 };
 
@@ -36,9 +40,10 @@ exports.registerStudent = async (req, res) => {
         }
 
         const { name, email, password, registerNo, department, year } = req.body;
+        const normalizedDept = department.toUpperCase();
 
         // Assign to the proctor with fewest students in same department, fallback to any proctor
-        const proctors = await Proctor.find({ department });
+        const proctors = await Proctor.find({ department: normalizedDept });
         let proctor = null;
         if (proctors.length > 0) {
             // Pick the proctor with the least assigned students (load balancing)
@@ -55,7 +60,7 @@ exports.registerStudent = async (req, res) => {
             proctorId = proctor._id;
         }
 
-        const student = await Student.create({ name, email, password, registerNo, department, year, proctorId });
+        const student = await Student.create({ name, email, password, registerNo, department: normalizedDept, year, proctorId });
 
         if (proctor) {
             if (!proctor.assignedStudents.includes(student._id)) {
@@ -75,7 +80,9 @@ exports.registerStudent = async (req, res) => {
         res.status(201).json({ message: 'Student registered successfully' });
     } catch (error) {
         console.error('Registration error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(error.code === 11000 ? 400 : 500).json({
+            message: error.code === 11000 ? 'Email or Register Number already exists' : error.message
+        });
     }
 };
 
@@ -91,7 +98,8 @@ exports.loginStudent = async (req, res) => {
             user: { ...student._doc, role: 'student' }
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Login error:', error);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -108,7 +116,8 @@ exports.loginProctor = async (req, res) => {
             user: { ...proctor._doc, role: 'proctor' }
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Proctor login error:', error);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -125,7 +134,8 @@ exports.loginAdmin = async (req, res) => {
             user: { ...admin._doc, role: 'admin' }
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Admin login error:', error);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -202,7 +212,7 @@ exports.forgotPassword = async (req, res) => {
         res.json({ message: 'Verification code sent to your email' });
     } catch (error) {
         console.error('Forgot password error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -286,7 +296,7 @@ exports.resetPassword = async (req, res) => {
         res.json({ message: 'Password reset successfully' });
     } catch (error) {
         console.error('Reset password error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ message: error.message });
     }
 };
 

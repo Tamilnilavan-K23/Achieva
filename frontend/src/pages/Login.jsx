@@ -58,7 +58,7 @@ const Login = () => {
             login(res.data.user, res.data.token);
             navigate(role === 'student' ? '/student/dashboard' : role === 'proctor' ? '/proctor/dashboard' : '/admin/dashboard');
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+            setError(err.response?.data?.message || err.response?.data?.error || 'Login failed. Please check your credentials.');
         } finally {
             setLoading(false);
         }

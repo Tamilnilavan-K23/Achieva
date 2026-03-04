@@ -29,7 +29,7 @@ const Signup = () => {
             alert('Registration successful! Please login.');
             navigate('/login');
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed. Please check your details.');
+            setError(err.response?.data?.message || err.response?.data?.error || 'Registration failed. Please check your details.');
         }
     };
 
